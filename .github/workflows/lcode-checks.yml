@@ -1,0 +1,57 @@
+name: LCode Checks
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lcode-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: LCode Check
+    if: github.repository == 'itslucadev/lcode'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsecret-1-dev pkg-config
+
+      - name: Setup Vite+ and workspace dependencies
+        uses: ./.github/actions/setup-ci-deps
+
+      - name: Install Chromium for tests
+        run: >-
+          node apps/web/node_modules/playwright/cli.js
+          install --with-deps --only-shell chromium
+
+      - name: Ensure Electron runtime
+        run: vp run --filter @t3tools/desktop ensure:electron
+
+      - name: Test upstream merge safety
+        run: >-
+          vp test run --project root
+          .github/scripts/lcode-upstream-sync.test.ts
+
+      - name: Check changed files and affected packages
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/main' }}
+        run: vp run check:changed "$BASE_REF"
+
+      - name: Build desktop pipeline
+        run: vp run build:desktop
+
+      - name: Verify preload bundle
+        run: node apps/desktop/scripts/verify-preload-bundle.mjs

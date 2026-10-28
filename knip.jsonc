@@ -7,14 +7,16 @@
   "workspaces": {
     ".": {
       // Keep vendored reference repositories outside the root project.
-      "project": ["*.{js,mjs,cjs,ts,mts,cts}", ".github/**/*.cjs"],
+      "project": ["*.{js,mjs,cjs,ts,mts,cts}", ".github/**/*.{cjs,ts}"],
       "entry": [
         // CodeRabbit loads its configuration by filename.
         ".coderabbit.config.ts",
         ".github/scripts/thread-transfer-report.cjs",
+        // The upstream-sync workflow copies this to the runner's temp directory.
+        ".github/scripts/lcode-upstream-sync.cjs",
       ],
-      "vite": { "entry": [".github/**/*.test.cjs"] },
-      "vitest": { "entry": [".github/**/*.test.cjs"] },
+      "vite": { "entry": [".github/**/*.test.{cjs,ts}"] },
+      "vitest": { "entry": [".github/**/*.test.{cjs,ts}"] },
     },
     "scripts": {
       // Knip loads its preprocessor through a CLI option; native verification and
