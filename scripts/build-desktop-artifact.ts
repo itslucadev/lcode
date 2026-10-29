@@ -1243,6 +1243,15 @@ function normalizePasskeyRpDomain(value: string): string {
   return parsed.hostname;
 }
 
+export function shouldConfigureMacPasskeys(
+  platform: string,
+  signed: boolean,
+  env: Readonly<Record<string, string | undefined>>,
+): boolean {
+  // Forks cannot claim the upstream team's Associated Domains provisioning.
+  return platform === "mac" && signed && env.T3CODE_MACOS_PASSKEYS_DISABLED !== "true";
+}
+
 export function resolveMacPasskeySigningConfiguration(
   env: Readonly<Record<string, string | undefined>>,
 ): MacPasskeySigningConfiguration {
@@ -1280,7 +1289,7 @@ export function resolveMacPasskeySigningConfiguration(
   }
 
   return {
-    appId: DESKTOP_APP_ID,
+    appId: env.T3CODE_DESKTOP_APP_ID?.trim() || DESKTOP_APP_ID,
     teamId,
     rpDomains: uniqueRpDomains,
     provisioningProfilePath,
@@ -2771,9 +2780,12 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   arch?: typeof BuildArch.Type,
 ) {
   const buildConfig: Record<string, unknown> = {
-    appId: DESKTOP_APP_ID,
+    appId: yield* Config.String("T3CODE_DESKTOP_APP_ID").pipe(Config.withDefault(DESKTOP_APP_ID)),
     productName: resolveDesktopProductName(version),
-    artifactName: "T3-Code-${version}-${arch}.${ext}",
+    artifactName: yield* Config.String("T3CODE_DESKTOP_ARTIFACT_NAME").pipe(
+      Config.withDefault("T3-Code-${version}-${arch}.${ext}"),
+    ),
+    forceCodeSigning: signed,
     electronLanguages: [...DESKTOP_ELECTRON_LANGUAGES],
     files: [
       ...DESKTOP_FILE_EXCLUSIONS,
@@ -2822,6 +2834,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       target: target === "dmg" ? [target, "zip"] : [target],
       icon: "icon.icns",
       category: "public.app-category.developer-tools",
+      ...(signed ? { hardenedRuntime: true, notarize: true } : {}),
       extendInfo: {
         // macOS 26 offers Messages/Mail codes in every text field unless opted out.
         NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac: true,
@@ -3794,13 +3807,16 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
   const stageProdResourcesDir = path.join(stageAppDir, "apps/desktop/prod-resources");
   yield* fs.copy(stageResourcesDir, stageProdResourcesDir);
 
-  const configuredMacPasskeySigning =
-    options.platform === "mac" && options.signed
-      ? yield* Effect.try({
-          try: () => resolveMacPasskeySigningConfiguration(loadRepoEnv({ repoRoot })),
-          catch: MacPasskeySigningConfigurationResolutionError.fromCause,
-        })
-      : undefined;
+  const configuredMacPasskeySigning = shouldConfigureMacPasskeys(
+    options.platform,
+    options.signed,
+    loadRepoEnv({ repoRoot }),
+  )
+    ? yield* Effect.try({
+        try: () => resolveMacPasskeySigningConfiguration(loadRepoEnv({ repoRoot })),
+        catch: MacPasskeySigningConfigurationResolutionError.fromCause,
+      })
+    : undefined;
   const macPasskeySigning = configuredMacPasskeySigning
     ? {
         ...configuredMacPasskeySigning,

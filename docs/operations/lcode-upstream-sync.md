@@ -52,7 +52,8 @@ A merged stale branch is replaced using an explicit force-with-lease, so concurr
 
 ## App updates are separate
 
-Merging an upstream PR only updates LCode source.
-The existing release workflows are upstream-specific and do not yet publish LCode releases.
-A separate LCode release setup must build and publish our binaries and set `T3CODE_DESKTOP_UPDATE_REPOSITORY=itslucadev/lcode` before the app's existing updater can safely distribute them.
+Merging an upstream PR updates LCode source and triggers the separate **LCode macOS Release** workflow on `main`.
+Once the Apple credentials are configured, it builds signed and notarized LCode binaries with `T3CODE_DESKTOP_UPDATE_REPOSITORY=itslucadev/lcode`.
+The in-app updater only sees the change after that release succeeds.
+See [LCode macOS releases](lcode-macos-releases.md) for credential setup and the initial installation.
 Do not point LCode at upstream binaries: installing those would replace our customized app.

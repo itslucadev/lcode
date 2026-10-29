@@ -2,8 +2,10 @@
 
 LCode is Lucas's personal fork of [T3 Code](https://github.com/pingdotgg/t3code), customized for his own development workflow.
 The app display name is LCode; internal package names, data paths, protocol identifiers, and existing artwork are unchanged.
+LCode's macOS releases use their own bundle identifier and GitHub update feed.
 The upstream documentation follows below; its hosted services, installers, and release links refer to T3 Code, not this fork.
 See [LCode upstream updates](docs/operations/lcode-upstream-sync.md) for the review-based sync workflow and one-time setup.
+See [LCode macOS releases](docs/operations/lcode-macos-releases.md) for Apple signing setup, installation, and in-app updates.
 
 ## Upstream project
 
