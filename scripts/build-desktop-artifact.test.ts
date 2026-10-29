@@ -39,6 +39,7 @@ import {
   renderMacPasskeyEntitlements,
   resolveMacWebAuthnEntitlements,
   resolveMacPasskeySigningConfiguration,
+  shouldConfigureMacPasskeys,
   resolveMergedStageDependencies,
   resolveBuildOptions,
   stageWslRuntimeArchive,
@@ -544,6 +545,58 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       ),
     ),
   );
+
+  it.effect("packages signed LCode builds with a separate identity and GitHub update feed", () =>
+    Effect.gen(function* () {
+      const config = yield* createBuildConfig(
+        "mac",
+        "dmg",
+        "0.0.12",
+        true,
+        false,
+        undefined,
+        undefined,
+      );
+      assert.equal(config.appId, "dev.itslucadev.lcode");
+      assert.equal(config.artifactName, "LCode-${version}-${arch}.${ext}");
+      assert.equal(config.forceCodeSigning, true);
+      assert.deepStrictEqual(config.publish, [
+        {
+          provider: "github",
+          owner: "itslucadev",
+          repo: "lcode",
+          releaseType: "release",
+        },
+      ]);
+      assert.propertyVal(config.mac, "notarize", true);
+      assert.propertyVal(config.mac, "hardenedRuntime", true);
+    }).pipe(
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnv({
+            env: {
+              GITHUB_REPOSITORY: "pingdotgg/t3code",
+              T3CODE_DESKTOP_UPDATE_REPOSITORY: "itslucadev/lcode",
+              T3CODE_DESKTOP_APP_ID: "dev.itslucadev.lcode",
+              T3CODE_DESKTOP_ARTIFACT_NAME: "LCode-${version}-${arch}.${ext}",
+            },
+          }),
+        ),
+      ),
+    ),
+  );
+
+  it("only omits native passkey provisioning when explicitly disabled for a fork", () => {
+    assert.isTrue(shouldConfigureMacPasskeys("mac", true, {}));
+    assert.isFalse(
+      shouldConfigureMacPasskeys("mac", true, { T3CODE_MACOS_PASSKEYS_DISABLED: "true" }),
+    );
+    assert.isFalse(shouldConfigureMacPasskeys("mac", false, {}));
+    assert.isFalse(shouldConfigureMacPasskeys("linux", true, {}));
+    assert.isTrue(
+      shouldConfigureMacPasskeys("mac", true, { T3CODE_MACOS_PASSKEYS_DISABLED: "false" }),
+    );
+  });
 
   // pnpm writes "set this to true or false" placeholders into allowBuilds when a
   // tarball changes. pnpm ignores them, but the release build decode rejects them.
